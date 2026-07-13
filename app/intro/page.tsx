@@ -32,7 +32,7 @@ export default function IntroPage() {
               <span className="intro-mode-badge">Daily</span>
             </div>
             <p className="intro-mode-desc">
-              Navigate from one word to another through associations — in as few steps as possible.
+              Navigate from one word to another through associations in as few steps as possible.
             </p>
             <div className="intro-example">
               <span className="intro-ex-word intro-ex-start">OCEAN</span>
