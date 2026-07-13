@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ThoughtChain — Daily Word Association Game",
+  title: "ThoughtChain: Daily word association game",
   description: "Connect words through association. A new puzzle every day.",
   openGraph: {
     title: "ThoughtChain",
