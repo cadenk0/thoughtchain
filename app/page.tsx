@@ -1,220 +1,171 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { useGameStore } from "@/store/gameStore";
-import { ChainDisplay } from "@/components/ChainDisplay";
-import { GuessInput } from "@/components/GuessInput";
-import { GameOverPanel } from "@/components/GameOverPanel";
-import { ShareCard } from "@/components/ShareCard";
-import { ChainNode, GameMode } from "@/types";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { LeaderboardEntry, GameMode } from "@/types";
 
-type FeedbackType = "success" | "error" | "warning" | "info";
+function formatTime(s: number) {
+  const m = Math.floor(s / 60);
+  return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+}
+function medal(rank: number) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return `#${rank}`;
+}
 
-export default function GamePage() {
-  const router = useRouter();
-  const [isLoading, setIsLoading]     = useState(false);
-  const [initLoading, setInitLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback]       = useState<{ text: string; type: FeedbackType } | null>(null);
-  const [todayData, setTodayData]     = useState<any>(null);
-  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+export default function LeaderboardPage() {
+  const [entries, setEntries]       = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [dayId, setDayId]           = useState("");
+  const [mode, setMode]             = useState<GameMode>("bridge");
+  const [expanded, setExpanded]     = useState<string | null>(null);
+  const [todayPuzzle, setTodayPuzzle] = useState<any>(null);
 
-  const {
-    sessionId, dayId, currentWord, chain, isComplete, isWon,
-    chainLength, totalPoints, lastWrongGuess, topAssociations,
-    isSubmitted, leaderboardRank, percentile,
-    puzzleNumber, username, isArchiveMode,
-    gameMode, seedWord, startWord, targetWord, solutionPath,
-    hasSeenIntro,
-    initEndless, initBridge, setGameMode,
-    playAgain, quitGame, addToChain, endGame, winGame,
-    setSubmitted, setUsername, setSolutionPath, getElapsedTime,
-  } = useGameStore();
-
-  useEffect(() => {
-    if (!hasSeenIntro) router.replace("/intro");
-  }, [hasSeenIntro, router]);
-
-  useEffect(() => {
-    const fetchToday = async () => {
-      try {
-        const res  = await fetch("/api/today");
-        const data = await res.json();
-        setTodayData(data);
-        if (gameMode === "bridge") initBridge(data.dayId, data.startWord, data.targetWord, data.puzzleNumber);
-        else initEndless(data.dayId, data.startWord, data.puzzleNumber);
-      } catch {
-        setFeedback({ text: "Failed to load today's puzzle. Please refresh.", type: "error" });
-      } finally {
-        setInitLoading(false);
-      }
-    };
-    fetchToday();
-  }, []); // eslint-disable-line
-
-  const handleModeChange = useCallback((mode: GameMode) => {
-    if (!todayData || mode === gameMode) return;
-    setGameMode(mode);
-    if (mode === "bridge") initBridge(todayData.dayId, todayData.startWord, todayData.targetWord, todayData.puzzleNumber);
-    else initEndless(todayData.dayId, todayData.startWord, todayData.puzzleNumber);
-  }, [todayData, gameMode, setGameMode, initBridge, initEndless]);
-
-  // Fetch solution when bridge game ends
-  useEffect(() => {
-    if (isComplete && gameMode === "bridge" && !solutionPath && startWord && targetWord) {
-      fetch(`/api/solution?start=${encodeURIComponent(startWord)}&target=${encodeURIComponent(targetWord)}&dayId=${dayId}`)
-        .then(r => r.json())
-        .then(d => { if (d.path) setSolutionPath(d.path); })
-        .catch(() => {});
-    }
-  }, [isComplete, gameMode, solutionPath, startWord, targetWord, dayId, setSolutionPath]);
-
-  const showFeedback = useCallback((text: string, type: FeedbackType) => {
-    setFeedback({ text, type });
-    // Auto-clear success/info; keep error/warning slightly longer
-    setTimeout(() => setFeedback(null), type === "error" || type === "warning" ? 4500 : 2200);
-  }, []);
-
-  const handleGuess = useCallback(async (guess: string) => {
-    if (isLoading || isComplete) return;
-    setIsLoading(true);
-    // Clear any previous feedback immediately on new guess
-    setFeedback(null);
+  const fetchBoard = async (did?: string, m?: GameMode) => {
     try {
-      const res = await fetch("/api/guess", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word: currentWord, guess, sessionId, dayId, chain, seedWord: startWord || seedWord, gameMode, targetWord }),
-      });
-      if (res.status === 429) { showFeedback("Too many guesses — slow down!", "error"); return; }
-      const data = await res.json();
-
-      if (data.duplicate) { showFeedback(`"${guess.toUpperCase()}" is already in your chain!`, "warning"); return; }
-      if (data.noData)    { showFeedback(`No association data for "${guess}". Try another word.`, "warning"); return; }
-
-      if (data.valid) {
-        const node: ChainNode = { word: data.word, rank: data.rank, rankLabel: data.rankLabel, rankTier: data.rankTier, points: data.points, timestamp: Date.now() };
-        addToChain(node, data.totalPoints);
-        if (data.isWon) {
-          winGame(data.totalPoints);
-          showFeedback(`🎉 You reached ${data.word.toUpperCase()}!`, "success");
-        } else {
-          showFeedback(`✓ ${data.word.toUpperCase()} — ${data.rankLabel} · +${data.points}pts`, "success");
-        }
-      } else {
-        if (gameMode === "endless") endGame(data.word, data.topAssociations, data.totalPoints);
-        // In bridge mode, invalid just shows the message but doesn't end the game
-        showFeedback(data.reason || `"${guess}" is not in the top 25!`, "error");
-      }
-    } catch {
-      showFeedback("Connection error. Try again.", "error");
+      const id = did || dayId;
+      const mo = m  || mode;
+      const res = await fetch(`/api/leaderboard?dayId=${id}&mode=${mo}&limit=50`);
+      setEntries((await res.json()).entries || []);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [isLoading, isComplete, currentWord, sessionId, dayId, chain, seedWord, startWord, gameMode, targetWord, addToChain, endGame, winGame, showFeedback]);
-
-  const handleSubmitScore = async (name: string) => {
-    if (isSubmitted || isSubmitting || isArchiveMode) return;
-    setIsSubmitting(true);
-    try {
-      const res  = await fetch("/api/submit-score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, dayId, chain, username: name, duration: getElapsedTime(), gameMode, won: isWon }),
-      });
-      const data = await res.json();
-      if (data.success) { setSubmitted(data.rank, data.percentile); setUsername(name); showFeedback(`Saved! Ranked #${data.rank}`, "success"); }
-    } catch { showFeedback("Failed to save score", "error"); }
-    finally   { setIsSubmitting(false); }
   };
 
-  if (initLoading || !hasSeenIntro) return (
-    <div className="page-loading"><div className="loading-brain">⬡</div><p className="loading-text">Loading…</p></div>
-  );
+  // Initial load
+  useEffect(() => {
+    const init = async () => {
+      const res  = await fetch("/api/today");
+      const data = await res.json();
+      setDayId(data.dayId);
+      setTodayPuzzle(data);
+      await fetchBoard(data.dayId, mode);
+    };
+    init().catch(console.error);
+  }, []); // eslint-disable-line
 
-  const displayStart = startWord || seedWord || "";
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!dayId) return;
+    const interval = setInterval(() => fetchBoard(dayId, mode), 30_000);
+    return () => clearInterval(interval);
+  }, [dayId, mode]); // eslint-disable-line
+
+  const handleMode = (m: GameMode) => {
+    setMode(m);
+    setExpanded(null);
+    setLoading(true);
+    fetchBoard(dayId, m);
+  };
 
   return (
-    <main className="game-page">
-      {/* Mode bar */}
-      <div className="mode-bar">
-        <button className={`mode-btn ${gameMode === "bridge"  ? "mode-btn-active" : ""}`} onClick={() => handleModeChange("bridge")}>🌉 Bridge</button>
-        <button className={`mode-btn ${gameMode === "endless" ? "mode-btn-active" : ""}`} onClick={() => handleModeChange("endless")}>∞ Endless</button>
-        <div className="mode-bar-spacer" />
-        {chainLength > 0 && (
-          <div className="puzzle-scores">
-            <span className="puzzle-chain">{chainLength} {gameMode === "bridge" ? "steps" : "links"}</span>
-            {totalPoints > 0 && <span className="puzzle-points">{totalPoints}pts</span>}
-          </div>
+    <main className="leaderboard-page">
+      <div className="page-header">
+        <h1 className="page-title">Rankings</h1>
+        {todayPuzzle && mode === "bridge" && (
+          <p className="page-subtitle">
+            Today: {todayPuzzle.startWord?.toUpperCase()} → {todayPuzzle.targetWord?.toUpperCase()}
+          </p>
         )}
-        {!isComplete && chainLength > 0 && !showQuitConfirm && (
-          <button className="quit-btn" onClick={() => setShowQuitConfirm(true)}>✕ Quit</button>
-        )}
-        {!isComplete && showQuitConfirm && (
-          <div className="quit-confirm">
-            <span>Give up?</span>
-            <button className="quit-confirm-yes" onClick={() => { quitGame(); setShowQuitConfirm(false); }}>Yes</button>
-            <button className="quit-confirm-no"  onClick={() => setShowQuitConfirm(false)}>No</button>
-          </div>
+        {todayPuzzle && mode === "endless" && (
+          <p className="page-subtitle">Today's start: {todayPuzzle.startWord?.toUpperCase()}</p>
         )}
       </div>
 
-      {/* Chain area */}
-      <div className="chain-scroll-area">
-        {displayStart && (
-          <ChainDisplay
-            seedWord={displayStart}
-            targetWord={gameMode === "bridge" ? targetWord : undefined}
-            chain={chain}
-            currentWord={currentWord}
-            isComplete={isComplete}
-            isWon={isWon}
-            lastWrongGuess={gameMode === "endless" ? lastWrongGuess : null}
-          />
-        )}
+      {/* Mode tabs */}
+      <div className="lb-mode-tabs">
+        <button className={`lb-tab ${mode === "bridge"  ? "lb-tab-active" : ""}`} onClick={() => handleMode("bridge")}>🌉 Bridge</button>
+        <button className={`lb-tab ${mode === "endless" ? "lb-tab-active" : ""}`} onClick={() => handleMode("endless")}>∞ Endless</button>
       </div>
 
-      {/* Input area with inline feedback strip just above it */}
-      {!isComplete ? (
-        <div className="input-area">
-          {/* Inline feedback — sits directly above the input box */}
-          {feedback && (
-            <div className={`inline-feedback inline-feedback-${feedback.type}`}>
-              {feedback.text}
+      <div className="lb-scoring-note">
+        {mode === "bridge"
+          ? "Ranked by fewest steps · tie-broken by quality points"
+          : "Ranked by total points · tie-broken by chain length"}
+      </div>
+
+      {loading ? (
+        <div className="lb-loading">
+          <div className="loading-brain">🏆</div>
+          <p>Loading…</p>
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="lb-empty">
+          <p className="lb-empty-text">No scores yet today.</p>
+          <Link href="/" className="play-now-btn">Be the first to play →</Link>
+        </div>
+      ) : mode === "bridge" ? (
+        <div className="lb-table">
+          <div className="lb-header-bridge">
+            <span>Rank</span><span>Player</span><span>Steps</span><span>Pts</span><span>Time</span>
+          </div>
+          {entries.map((e, i) => (
+            <div key={e.sessionId} className="lb-row-wrapper">
+              <button
+                className={`lb-row lb-row-bridge ${i < 3 ? "lb-row-top3" : ""} ${expanded === e.sessionId ? "lb-row-expanded" : ""}`}
+                onClick={() => setExpanded(expanded === e.sessionId ? null : e.sessionId)}
+              >
+                <span className="lb-rank-display">{medal(e.rank)}</span>
+                <span className="lb-username">{e.won ? "✅ " : "❌ "}{e.username}</span>
+                <span className="lb-highlight">{e.chainLength}</span>
+                <span className="lb-secondary">{e.totalPoints ?? 0}</span>
+                <span className="lb-time-display">{formatTime(e.duration)}</span>
+              </button>
+              {expanded === e.sessionId && (
+                <div className="lb-chain-reveal">
+                  <div className="lb-chain-words">
+                    {e.chain.map((word, idx) => (
+                      <span key={idx} className="lb-chain-item">
+                        {idx > 0 && <span className="lb-chain-sep">→</span>}
+                        <span className="lb-chain-word">{word.toUpperCase()}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-          {isLoading && <div className="loading-bar"><div className="loading-bar-fill" /></div>}
-          <GuessInput
-            currentWord={currentWord}
-            targetWord={gameMode === "bridge" ? targetWord : undefined}
-            onGuess={handleGuess}
-            disabled={isComplete || isLoading}
-            isLoading={isLoading}
-          />
+          ))}
         </div>
       ) : (
-        <div className="results-area">
-          <GameOverPanel
-            gameMode={gameMode} chainLength={chainLength} totalPoints={totalPoints}
-            isWon={isWon} startWord={displayStart} targetWord={targetWord}
-            currentWord={currentWord} lastWrongGuess={lastWrongGuess}
-            topAssociations={topAssociations} solutionPath={solutionPath}
-            playerChain={chain}
-            onSubmit={handleSubmitScore} onPlayAgain={playAgain}
-            isSubmitting={isSubmitting} isSubmitted={isSubmitted}
-            isArchiveMode={isArchiveMode} rank={leaderboardRank}
-            percentile={percentile} savedUsername={username}
-          />
-          <ShareCard
-            chain={chain} seedWord={displayStart}
-            targetWord={gameMode === "bridge" ? targetWord : undefined}
-            chainLength={chainLength} totalPoints={totalPoints}
-            puzzleNumber={puzzleNumber} gameMode={gameMode} isWon={isWon}
-            rank={leaderboardRank} percentile={percentile}
-          />
+        <div className="lb-table">
+          <div className="lb-header-5col">
+            <span>Rank</span><span>Player</span><span>Points</span><span>Links</span><span>Time</span>
+          </div>
+          {entries.map((e, i) => (
+            <div key={e.sessionId} className="lb-row-wrapper">
+              <button
+                className={`lb-row lb-row-5col ${i < 3 ? "lb-row-top3" : ""} ${expanded === e.sessionId ? "lb-row-expanded" : ""}`}
+                onClick={() => setExpanded(expanded === e.sessionId ? null : e.sessionId)}
+              >
+                <span className="lb-rank-display">{medal(e.rank)}</span>
+                <span className="lb-username">{e.username}</span>
+                <span className="lb-highlight">{e.totalPoints ?? 0}</span>
+                <span className="lb-secondary">{e.chainLength}</span>
+                <span className="lb-time-display">{formatTime(e.duration)}</span>
+              </button>
+              {expanded === e.sessionId && (
+                <div className="lb-chain-reveal">
+                  <div className="lb-chain-words">
+                    {e.chain.map((word, idx) => (
+                      <span key={idx} className="lb-chain-item">
+                        {idx > 0 && <span className="lb-chain-sep">→</span>}
+                        <span className="lb-chain-word">{word.toUpperCase()}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
+
+      <div className="lb-footer">
+        <p className="lb-refresh-note">Updates every 30 seconds · Resets daily at midnight UTC</p>
+        <Link href="/" className="back-link">← Back to game</Link>
+      </div>
     </main>
   );
 }
