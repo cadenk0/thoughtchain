@@ -1,21 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useGameStore } from "@/store/gameStore";
 import { ThemeToggle } from "@/components/Header";
 
 export default function IntroPage() {
   const router = useRouter();
-  const { setHasSeenIntro } = useGameStore();
-
-  const handlePlay = () => {
-    setHasSeenIntro();
-    router.push("/");
-  };
 
   return (
     <main className="intro-page">
-      {/* Theme toggle in top-right corner */}
       <div className="intro-theme-toggle">
         <ThemeToggle />
       </div>
@@ -32,7 +24,7 @@ export default function IntroPage() {
               <span className="intro-mode-badge">Daily</span>
             </div>
             <p className="intro-mode-desc">
-              Navigate from one word to another through associations in as few steps as possible.
+              Navigate from one word to another through associations — in as few steps as possible.
             </p>
             <div className="intro-example">
               <span className="intro-ex-word intro-ex-start">OCEAN</span>
@@ -58,7 +50,7 @@ export default function IntroPage() {
           </div>
         </div>
 
-        <button className="intro-play-btn" onClick={handlePlay}>
+        <button className="intro-play-btn" onClick={() => router.push("/")}>
           Play today's puzzle →
         </button>
 
