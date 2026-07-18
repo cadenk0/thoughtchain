@@ -79,15 +79,15 @@ export const useGameStore = create<GameStore>()(
 
       initEndless: (dayId, seedWord, puzzleNumber) => {
         const s = get();
-        if (s.isArchiveMode) return;
-        if (s.gameMode === "endless" && s.dayId === dayId && (s.chain.length > 0 || s.isComplete)) return;
+        // If already playing today's game (not archive), keep existing state
+        if (!s.isArchiveMode && s.gameMode === "endless" && s.dayId === dayId && (s.chain.length > 0 || s.isComplete)) return;
         set({ ...freshEndless(dayId, seedWord, puzzleNumber), isArchiveMode: false });
       },
 
       initBridge: (dayId, startWord, targetWord, puzzleNumber) => {
         const s = get();
-        if (s.isArchiveMode) return;
-        if (s.gameMode === "bridge" && s.dayId === dayId && (s.chain.length > 0 || s.isComplete)) return;
+        // If already playing today's game (not archive), keep existing state
+        if (!s.isArchiveMode && s.gameMode === "bridge" && s.dayId === dayId && (s.chain.length > 0 || s.isComplete)) return;
         set({ ...freshBridge(dayId, startWord, targetWord, puzzleNumber), isArchiveMode: false });
       },
 
