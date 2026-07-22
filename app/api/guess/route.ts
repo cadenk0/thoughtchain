@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         valid: false, duplicate: false, word: normalizedGuess,
-        reason: `"${normalizedGuess}" is not in the top 25 associations for "${word}"`,
+        reason: `"${normalizedGuess}" is not in the top 30 associations for "${word}"`,
         topAssociations, chain: currentChain, chainLength: currentChain.length, totalPoints,
         isComplete: gameMode === "endless", // bridge: invalid guess doesn't end game
         isWon: false,
