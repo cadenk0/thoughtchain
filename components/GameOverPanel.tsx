@@ -116,7 +116,7 @@ export function GameOverPanel({
       {gameMode === "endless" && lastWrongGuess && (
         <div className="wrong-guess-info">
           <p className="wrong-guess-text">
-            <span className="wrong-word">"{lastWrongGuess.toUpperCase()}"</span> isn't in top 25 for{" "}
+            <span className="wrong-word">"{lastWrongGuess.toUpperCase()}"</span> isn't in top 30 for{" "}
             <span className="wrong-from">"{currentWord.toUpperCase()}"</span>
           </p>
           <button className="reveal-btn" onClick={handleToggleReveal}>
@@ -127,7 +127,7 @@ export function GameOverPanel({
               {isFetching ? <p className="associations-label">Loading…</p>
                 : associationsToShow?.length ? (
                   <>
-                    <p className="associations-label">Top 25 for "{currentWord.toUpperCase()}":</p>
+                    <p className="associations-label">Top 30 for "{currentWord.toUpperCase()}":</p>
                     <div className="associations-list">
                       {associationsToShow.map((word, i) => (
                         <span key={word} className={`association-chip ${word === lastWrongGuess?.toLowerCase() ? "association-chip-miss" : ""}`}>
