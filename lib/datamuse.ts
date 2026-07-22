@@ -5,7 +5,7 @@
  *   ?rel_trg=word  → "triggered by" (free association / semantic triggers)
  *   ?ml=word       → "means like" (synonyms / semantic neighbors)
  *
- * We fetch both, merge by score, deduplicate, and take top 25.
+ * We fetch both, merge by score, deduplicate, and take top 30.
  * Results are cached in memory (per server process) and on disk permanently.
  */
 
@@ -13,7 +13,7 @@ import fs from "fs";
 import path from "path";
 
 const CACHE_PATH = path.join(process.cwd(), "data", "association-cache.json");
-const TOP_K = 25;
+const TOP_K = 30;
 const BASE = "https://api.datamuse.com";
 
 // In-memory cache
