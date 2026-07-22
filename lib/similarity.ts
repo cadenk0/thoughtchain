@@ -1,6 +1,6 @@
 import { getAssociations, checkGuess as datamuseCheck } from "@/lib/datamuse";
 
-export const TOP_K = 25;
+export const TOP_K = 30;
 
 export function rankToPoints(rank: number): number {
   if (rank <= 0 || rank > TOP_K) return 0;
