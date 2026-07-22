@@ -35,7 +35,7 @@ export default function IntroPage() {
               <span className="intro-ex-arrow">→</span>
               <span className="intro-ex-word intro-ex-target">SKY</span>
             </div>
-            <p className="intro-mode-rule">Each step must be in the top 25 associations. Fewer steps wins.</p>
+            <p className="intro-mode-rule">Each step must be in the top 30 associations. Fewer steps wins.</p>
           </div>
 
           <div className="intro-mode-card">
