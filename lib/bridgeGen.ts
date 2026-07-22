@@ -4,7 +4,7 @@
  *
  * Given a date-based seed, we:
  * 1. Pick a start word from a curated list using the seed
- * 2. Walk exactly 4 steps through top-25 Datamuse associations,
+ * 2. Walk exactly 4 steps through top-30 Datamuse associations,
  *    using the seed to pick which association to follow at each step
  * 3. The word at step 4 becomes the target
  *
@@ -65,8 +65,9 @@ export async function generateBridgePuzzle(dayId: string): Promise<BridgePuzzle 
   // Pick start word deterministically from seed
   const startWord = SEED_WORDS[Math.floor(rng() * SEED_WORDS.length)];
 
-  // Walk exactly 4 steps, picking from top-25 associations at each step
-  // We try a few walk attempts in case a word has no associations
+  // Walk exactly 4 steps, picking from the top 5 associations at each step.
+  // Staying within top 5 keeps the chain tight so the puzzle is always solvable
+  // with common, obvious associations — making the game easier and fairer.
   const path: string[] = [startWord];
   const used = new Set<string>([startWord]);
 
@@ -78,8 +79,8 @@ export async function generateBridgePuzzle(dayId: string): Promise<BridgePuzzle 
     const candidates = assocs.filter(w => !used.has(w));
     if (candidates.length === 0) return null; // shouldn't happen with Datamuse
 
-    // Pick deterministically using rng — pick from top 8 to keep chains interesting
-    const pool  = candidates.slice(0, Math.min(8, candidates.length));
+    // Pick deterministically using rng — only from top 5 so every step is an obvious association
+    const pool  = candidates.slice(0, Math.min(5, candidates.length));
     const pick  = pool[Math.floor(rng() * pool.length)];
     path.push(pick);
     used.add(pick);
